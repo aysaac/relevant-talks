@@ -148,7 +148,8 @@ def test(epoch,last_epoch):
                 test_loss += criterion(output, target).item()
                 pred = output.argmax(dim=1, keepdim=True)
                 correct += pred.eq(target.view_as(pred)).sum().item()
-                all_preds.extend(pred.cpu().numpy())
+                class_pred = output.argmax(dim=1)
+                all_preds.extend(class_pred.cpu().numpy())
                 all_targets.extend(target.cpu().numpy())
 
     test_loss /= len(test_loader.dataset)
