@@ -5,12 +5,11 @@ import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
 import wandb
-import matplotlib.pyplot as plt
 import numpy as np
-from torch.nn.functional import relu
 from sklearn.metrics import f1_score,precision_score,recall_score
-from torch import nn, flatten
+from models import SimpleClassifier
 
+# from wandb import
 
 
 #%%
@@ -49,6 +48,8 @@ test_dataset = torchvision.datasets.MNIST('./data', train=False, transform=trans
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=config.test_batch_size, shuffle=False)
 
+dataset_artifact=wandb.Artifact(name="MNIST",type="Datasets")
+wandb.run.log_artifact(artifact_or_path=dataset_artifact)
 # Log dataset examples to wandb
 example_images = []
 example_labels = []
@@ -70,39 +71,10 @@ wandb.log({
 
 #%%
 # Define the CNN model
-class AN_classifier(nn.Module):
-    def __init__(self):
-        super(AN_classifier, self).__init__()
-        self.conv1 = nn.Conv2d(
-            1, 5, kernel_size=(3, 3), stride=(1, 1), padding=1
-        )
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(
-            5, 16, kernel_size=(5, 5), stride=(2, 2), padding=1
-        )
-        self.lin1 = nn.Linear(144, 120)
-        self.lin2 = nn.Linear(120, 84)
-        self.lin3 = nn.Linear(84, 10)
-        self.drop1 = nn.Dropout(0.1)
-        self.drop2 = nn.Dropout(0.15)
-
-    # Defining the forward pass
-    def forward(self, x):
-        x = relu(self.conv1(x))
-        x = self.pool(x)
-        x = relu(self.conv2(x))
-        x = self.pool(x)
-        x = flatten(x, 1)  # flatten all dimensions except batch
-        x = relu(self.lin1(x))
-        x = self.drop1(x)
-        x = relu(self.lin2(x))
-        x = self.drop2(x)
-        x = self.lin3(x)
-        return x
 
 
 # Initialize the model, loss function, and optimizer
-model = AN_classifier().to(device)
+model = SimpleClassifier().to(device)
 optimizer = optim.AdamW(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
 criterion = nn.CrossEntropyLoss()
 
@@ -189,7 +161,13 @@ for epoch in range(1, config.epochs + 1):
     test(epoch,config.epochs)
 
 # Save the model
-torch.save(model.state_dict(), "mnist_cnn.pt")
+model_name=f"mnist_cnn_{wandb.run.name}"
+model_artifact = wandb.Artifact(name=model_name, type="model")
+
+torch.save(model.state_dict(), rf"save-models\{model_name}.pt")
+
+model_artifact.add_file(rf"save-models\{model_name}.pt")
+wandb.run.log_artifact(artifact_or_path=model_artifact)
 #%%
 # wandb.save("mnist_cnn.pt")
 
