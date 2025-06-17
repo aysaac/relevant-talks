@@ -33,16 +33,20 @@ torch.manual_seed(config.seed)
 # Check if CUDA is available
 use_cuda = not config.no_cuda and torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
-
+print(device)
 # Define data transformations
 transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.1307,), (0.3081,))
 ])
 
-# Load MNIST dataset
-train_dataset = torchvision.datasets.MNIST('./data', train=True, download=True, transform=transform)
-test_dataset = torchvision.datasets.MNIST('./data', train=False, transform=transform)
+# Load MNIST dataset - use only train split and divide it 80/20
+full_train_dataset = torchvision.datasets.MNIST('./data', train=True, download=True, transform=transform)
+
+# Split the training dataset into train (80%) and test (20%)
+train_size = int(0.8 * len(full_train_dataset))
+test_size = len(full_train_dataset) - train_size
+train_dataset, test_dataset = torch.utils.data.random_split(full_train_dataset, [train_size, test_size])
 
 # Create data loaders
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
