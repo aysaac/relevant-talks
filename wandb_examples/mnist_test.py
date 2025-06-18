@@ -5,9 +5,11 @@ import torchvision
 import torchvision.transforms as transforms
 from sklearn.metrics import f1_score, precision_score, recall_score, classification_report
 from torch import nn
+import numpy as np
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
 from models import SimpleClassifier
-
+from  PIL import Image
 def load_model_from_artifact(artifact_name, model_class, device):
     """Load model from W&B artifact"""
     artifact = wandb.use_artifact(artifact_name, type='model')
@@ -197,21 +199,55 @@ wandb.log({
     )
 })
 
-# Log test examples
-example_images = []
-for i in range(min(10, len(results['targets']))):
+# Log test examples in a table
+example_data = []
+examples_table = wandb.Table(
+    columns=['Img', 'Prediction', 'Label'],
+)
+for i in range(min(20, len(results['targets']))):
     image, true_label = test_dataset[i]
     pred_label = results['predictions'][i]
     
     # Convert tensor to numpy for logging
-    img_array = image.numpy().squeeze()
-    
-    example_images.append(wandb.Image(
-        img_array, 
-        caption=f"True: {true_label}, Pred: {pred_label}"
-    ))
+    img_array = image.numpy()
+    examples_table.add_data(
+    wandb.Image(img_array),
+        int(pred_label),
+        int(true_label))
+# Create test examples artifact linked to the model artifact
+examples_artifact = wandb.Artifact(
+    name=f"test_examples_{wandb.run.name}",
+    type="test_examples",
+    description=f"Test examples with predictions generated from model artifact {artifact_name}"
+)
 
-wandb.log({"test_examples": example_images})
+# Create table with examples
+
+
+# Add table to artifact
+with examples_artifact.new_file("test_examples.json", mode="w") as f:
+    import json
+    # Store table metadata and info
+    table_info = {
+        'columns': examples_table.columns,
+        'num_examples': len(example_data),
+        'model_artifact': artifact_name,
+        'description': 'Test examples with model predictions'
+    }
+    json.dump(table_info, f, indent=2)
+
+# Link the examples artifact to the model artifact
+if model_artifact:
+    examples_artifact.metadata.update({
+        "source_model_artifact": artifact_name,
+        "generated_from": "model_predictions"
+    })
+
+# Log the examples artifact
+wandb.log_artifact(examples_artifact)
+
+# Log the table
+wandb.log({"test_examples": examples_table})
 
 wandb.finish()
 print("Testing completed! Results logged to W&B.")
